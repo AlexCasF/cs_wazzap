@@ -1,26 +1,45 @@
 import socket
 
+HOST = "127.0.0.1"
+PORT = 9999
+BUFFER_SIZE = 1024
+QUIT_COMMAND = "/quit"
+
 print("Client: Starting...")
 try:
-    # Create a socket
     client_socket = socket.socket()
     print("Client: Socket created.")
 
-    # Server address (localhost means this computer) and port
-    # This must match the port used by server.py.
-    server_address = ("127.0.0.1", 9999)
-
+    server_address = (HOST, PORT)
     print(f"Client: Connecting to {server_address[0]}:{server_address[1]}...")
-    # Connect to the server
     client_socket.connect(server_address)
     print("Client: Connected!")
+    print(f"Client: Type a message and press Enter. Use {QUIT_COMMAND} to exit.")
 
-    # Send a message (must be encoded to bytes)
-    message = "Hi server!"
-    client_socket.sendall(message.encode('utf-8'))
-    print(f"Client: Sent: '{message}'")
+    while True:
+        message = input("You: ").strip()
+        if not message:
+            print("Client: Empty message not sent.")
+            continue
 
-    # Close the socket
+        client_socket.sendall(message.encode("utf-8"))
+
+        if message == QUIT_COMMAND:
+            print("Client: Closing chat.")
+            break
+
+        data_received = client_socket.recv(BUFFER_SIZE)
+        if not data_received:
+            print("Client: Server disconnected.")
+            break
+
+        response = data_received.decode("utf-8").strip()
+        print(f"Server: {response}")
+
+        if response == QUIT_COMMAND:
+            print("Client: Server ended the chat.")
+            break
+
     client_socket.close()
     print("Client: Socket closed.")
 
