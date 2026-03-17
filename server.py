@@ -1,3 +1,4 @@
+import argparse
 import os
 import queue
 import select
@@ -5,10 +6,23 @@ import socket
 import sys
 import threading
 
-HOST = "0.0.0.0"
-PORT = 9999
+DEFAULT_HOST = "0.0.0.0"
+DEFAULT_PORT = 9999
 BUFFER_SIZE = 1024
 QUIT_COMMAND = "/quit"
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Run the Wazzap chat server.")
+    parser.add_argument("host", nargs="?", default=DEFAULT_HOST, help="Host/IP to bind to.")
+    parser.add_argument(
+        "port",
+        nargs="?",
+        type=int,
+        default=DEFAULT_PORT,
+        help="TCP port to listen on.",
+    )
+    return parser.parse_args()
 
 
 def prompt():
@@ -77,11 +91,12 @@ def handle_incoming_data(receive_buffer, data_received, local_input_closed):
 
 print("Server: Starting...")
 try:
+    args = parse_args()
     server_socket = socket.socket()
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     print("Server: Socket created.")
 
-    server_address = (HOST, PORT)
+    server_address = (args.host, args.port)
     print(f"Server: Binding to {server_address[0]}:{server_address[1]}...")
     server_socket.bind(server_address)
 
