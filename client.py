@@ -7,7 +7,8 @@ try:
     print("Client: Socket created.")
 
     # Server address (localhost means this computer) and port
-    server_address = ("127.0.0.1", 80)
+    # This must match the port used by server.py.
+    server_address = ("127.0.0.1", 9999)
 
     print(f"Client: Connecting to {server_address[0]}:{server_address[1]}...")
     # Connect to the server
