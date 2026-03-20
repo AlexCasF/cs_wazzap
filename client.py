@@ -3,7 +3,6 @@ import os
 import queue
 import random
 import select
-import shutil
 import socket
 import sys
 import threading
@@ -66,6 +65,23 @@ def clear_screen():
     print("\033[2J\033[H", end="", flush=True)
 
 
+def red(text):
+    return f"\033[31m{text}\033[0m"
+
+
+def green(text):
+    return f"\033[32m{text}\033[0m"
+
+
+def blink(text):
+    return f"\033[5m{text}\033[0m"
+
+
+def make_progress_bar(progress, width=28):
+    filled = max(0, min(width, int(width * progress)))
+    return "[" + ("#" * filled) + ("-" * (width - filled)) + "]"
+
+
 def glitch_text(text):
     glitch_chars = "@#$%&*?!~=+<>/\\|[]{};:.,^_"
     mojibake_chars = "XO01Il/\\\\[]{}<>~^_-+="
@@ -86,7 +102,6 @@ def glitch_text(text):
 
 
 def run_virus_effect(remote_label):
-    width = shutil.get_terminal_size((80, 24)).columns
     messages = [
         "SYSTEM BREACH DETECTED",
         "BOOT SECTOR CORRUPTED",
@@ -98,21 +113,73 @@ def run_virus_effect(remote_label):
         "RECOVERING FRAGMENTS",
     ]
 
-    end_time = time.time() + 10
-    while time.time() < end_time:
+    skull_lines = [
+        "⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄",
+        "⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⡀⠄⠄⠄⠄",
+        "⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠈⠄⠄⠄⠁⠄⠁⠄⠄⠄⠄⠄",
+        "⠄⠄⠄⠄⠄⠄⣀⣀⣤⣤⣴⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣦⣤⣤⣄⣀⡀⠄⠄⠄⠄⠄",
+        "⠄⠄⠄⠄⣴⣿⣿⡿⣿⢿⣟⣿⣻⣟⡿⣟⣿⣟⡿⣟⣿⣻⣟⣿⣻⢿⣻⡿⣿⢿⣷⣆⠄⠄⠄",
+        "⠄⠄⠄⢘⣿⢯⣷⡿⡿⡿⢿⢿⣷⣯⡿⣽⣞⣷⣻⢯⣷⣻⣾⡿⡿⢿⢿⢿⢯⣟⣞⡮⡀⠄⠄",
+        "⠄⠄⠄⢸⢞⠟⠃⣉⢉⠉⠉⠓⠫⢿⣿⣷⢷⣻⣞⣿⣾⡟⠽⠚⠊⠉⠉⠉⠙⠻⣞⢵⠂⠄⠄",
+        "⠄⠄⠄⢜⢯⣺⢿⣻⣿⣿⣷⣔⡄⠄⠈⠛⣿⣿⡾⠋⠁⠄⠄⣄⣶⣾⣿⡿⣿⡳⡌⡗⡅⠄⠄",
+        "⠄⠄⠄⢽⢱⢳⢹⡪⡞⠮⠯⢯⡻⡬⡐⢨⢿⣿⣿⢀⠐⡥⣻⡻⠯⡳⢳⢹⢜⢜⢜⢎⠆⠄⠄",
+        "⠄⠄⠠⣻⢌⠘⠌⡂⠈⠁⠉⠁⠘⠑⢧⣕⣿⣿⣿⢤⡪⠚⠂⠈⠁⠁⠁⠂⡑⠡⡈⢮⠅⠄⠄",
+        "⠄⠄⠠⣳⣿⣿⣽⣭⣶⣶⣶⣶⣶⣺⣟⣾⣻⣿⣯⢯⢿⣳⣶⣶⣶⣖⣶⣮⣭⣷⣽⣗⠍⠄⠄",
+        "⠄⠄⢀⢻⡿⡿⣟⣿⣻⣽⣟⣿⢯⣟⣞⡷⣿⣿⣯⢿⢽⢯⣿⣻⣟⣿⣻⣟⣿⣻⢿⣿⢀⠄⠄",
+        "⠄⠄⠄⡑⡏⠯⡯⡳⡯⣗⢯⢟⡽⣗⣯⣟⣿⣿⣾⣫⢿⣽⠾⡽⣺⢳⡫⡞⡗⡝⢕⠕⠄⠄⠄",
+        "⠄⠄⠄⢂⡎⠅⡃⢇⠇⠇⣃⣧⡺⡻⡳⡫⣿⡿⣟⠞⠽⠯⢧⣅⣃⠣⠱⡑⡑⠨⢐⢌⠂⠄⠄",
+        "⠄⠄⠄⠐⠼⣦⢀⠄⣶⣿⢿⣿⣧⣄⡌⠂⠢⠩⠂⠑⣁⣅⣾⢿⣟⣷⠦⠄⠄⡤⡇⡪⠄⠄⠄",
+        "⠄⠄⠄⠄⠨⢻⣧⡅⡈⠛⠿⠿⠿⠛⠁⠄⢀⡀⠄⠄⠘⠻⠿⠿⠯⠓⠁⢠⣱⡿⢑⠄⠄⠄⠄",
+        "⠄⠄⠄⠄⠈⢌⢿⣷⡐⠤⣀⣀⣂⣀⢀⢀⡓⠝⡂⡀⢀⢀⢀⣀⣀⠤⢊⣼⡟⡡⡁⠄⠄⠄⠄",
+        "⠄⠄⠄⠄⠄⠈⢢⠚⣿⣄⠈⠉⠛⠛⠟⠿⠿⠟⠿⠻⠻⠛⠛⠉⠄⣠⠾⢑⠰⠈⠄⠄⠄⠄⠄",
+        "⠄⠄⠄⠄⠄⠄⠄⠑⢌⠿⣦⡡⣱⣸⣸⣆⠄⠄⠄⣰⣕⢔⢔⠡⣼⠞⡡⠁⠁⠄⠄⠄⠄⠄⠄",
+        "⠄⠄⠄⠄⠄⠄⠄⠄⠄⠑⢝⢷⣕⡷⣿⡿⠄⠄⠠⣿⣯⣯⡳⡽⡋⠌⠄⠄⠄⠄⠄⠄⠄⠄⠄",
+        "⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠙⢮⣿⣽⣯⠄⠄⢨⣿⣿⡷⡫⠃⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄",
+        "⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠘⠙⠝⠂⠄⢘⠋⠃⠁⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄",
+        "⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄",
+        "⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄",
+    ]
+
+    warning_duration = 10
+    warning_start = time.time()
+    warning_end = warning_start + warning_duration
+    blink_on = True
+    while time.time() < warning_end:
         clear_screen()
-        print(glitch_text("!!! WAZZAP VIRUS ALERT !!!").center(width))
-        print()
+        banner = "!!! WAZZAP VIRUS ALERT !!!"
+        status = "REMOTE PAYLOAD ACTIVE"
+        colorize = red if blink_on else green
+        print(colorize(blink(banner)))
+        print(colorize(blink(status)))
 
+        print()
+        for line in skull_lines:
+            print(colorize(blink(line)))
+
+        print()
+        progress = min((time.time() - warning_start) / warning_duration, 1.0)
+        percent = min(99, max(3, int(3 + (96 * progress))))
+        print(colorize(blink("PAYLOAD DOWNLOAD")))
+        print(colorize(blink(f"{make_progress_bar(percent / 100)} {percent}%")))
+        print()
+        print(colorize(blink(f"{remote_label} infected your terminal")))
+        print(colorize(blink("FILES ARE BEING CORRUPTED")))
+        print(colorize(blink("DO NOT POWER OFF")))
+        frame_delay = max(0.05, 0.45 - (0.37 * progress))
+        time.sleep(frame_delay)
+        blink_on = not blink_on
+
+    glitch_end = time.time() + 10
+    while time.time() < glitch_end:
+        clear_screen()
+        print(glitch_text("!!! WAZZAP VIRUS ALERT !!!"))
+        print(glitch_text(f"{remote_label} infected your terminal"))
         for _ in range(8):
-            print(glitch_text(random.choice(messages)).center(width))
-
-        print()
-        print(glitch_text(f"{remote_label} infected your terminal").center(width))
+            print(glitch_text(random.choice(messages)))
         time.sleep(0.08)
 
     clear_screen()
-    print("Terminal recovered.")
+    print("Just kidding :-D")
 
 
 def start_input_reader():
@@ -213,7 +280,6 @@ try:
     print("Client: Connected!")
     print(f"Client: Chat is live. Type messages anytime. Use {QUIT_COMMAND} to exit.")
     print(f"Client: Use {LEET_COMMAND} to toggle leetspeak for future outgoing messages.")
-    print(f"Client: Use {VIRUS_COMMAND} to prank the other side for 10 seconds.")
 
     watched_inputs = [client_socket]
     input_queue = None
