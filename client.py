@@ -10,6 +10,24 @@ DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 9999
 BUFFER_SIZE = 1024
 QUIT_COMMAND = "/quit"
+LEET_COMMAND = "/leet"
+
+LEET_MAP = str.maketrans({
+    "a": "4",
+    "A": "4",
+    "e": "3",
+    "E": "3",
+    "i": "1",
+    "I": "1",
+    "o": "0",
+    "O": "0",
+    "s": "5",
+    "S": "5",
+    "t": "7",
+    "T": "7",
+    "g": "6",
+    "G": "6",
+})
 
 
 def parse_args():
@@ -34,6 +52,10 @@ def prompt():
     print("You: ", end="", flush=True)
 
 
+def to_leetspeak(message):
+    return message.translate(LEET_MAP)
+
+
 def start_input_reader():
     input_queue = queue.Queue()
 
@@ -50,17 +72,26 @@ def send_message(connection, message):
     connection.sendall(f"{message}\n".encode("utf-8"))
 
 
-def handle_outgoing_message(connection, message):
+def handle_outgoing_message(connection, message, leet_enabled):
     message = message.strip()
     if not message:
         prompt()
-        return False, False
+        return False, False, leet_enabled
+
+    if message == LEET_COMMAND:
+        leet_enabled = not leet_enabled
+        state = "enabled" if leet_enabled else "disabled"
+        print(f"\nClient: Leet mode {state}.")
+        prompt()
+        return False, False, leet_enabled
+
+    outgoing_message = to_leetspeak(message) if leet_enabled and message != QUIT_COMMAND else message
 
     try:
-        send_message(connection, message)
+        send_message(connection, outgoing_message)
     except OSError as err:
         print(f"\nClient: Connection lost while sending: {err}")
-        return True, True
+        return True, True, leet_enabled
 
     if message == QUIT_COMMAND:
         try:
@@ -68,10 +99,10 @@ def handle_outgoing_message(connection, message):
         except OSError:
             pass
         print("\nClient: Closing your side of the chat. Waiting for server...")
-        return True, False
+        return True, False, leet_enabled
 
     prompt()
-    return False, False
+    return False, False, leet_enabled
 
 
 def handle_incoming_data(receive_buffer, data_received, local_input_closed):
@@ -105,6 +136,7 @@ try:
     client_socket.connect(server_address)
     print("Client: Connected!")
     print(f"Client: Chat is live. Type messages anytime. Use {QUIT_COMMAND} to exit.")
+    print(f"Client: Use {LEET_COMMAND} to toggle leetspeak for future outgoing messages.")
 
     watched_inputs = [client_socket]
     input_queue = None
@@ -115,6 +147,7 @@ try:
 
     receive_buffer = ""
     local_input_closed = False
+    leet_enabled = False
     prompt()
 
     while True:
@@ -138,9 +171,10 @@ try:
                 typed_message = sys.stdin.readline()
                 if typed_message == "":
                     typed_message = QUIT_COMMAND
-                local_input_closed, should_exit = handle_outgoing_message(
+                local_input_closed, should_exit, leet_enabled = handle_outgoing_message(
                     client_socket,
                     typed_message,
+                    leet_enabled,
                 )
                 if local_input_closed:
                     watched_inputs = [client_socket]
@@ -161,9 +195,10 @@ try:
                 if typed_message is None:
                     typed_message = QUIT_COMMAND
 
-                local_input_closed, should_exit = handle_outgoing_message(
+                local_input_closed, should_exit, leet_enabled = handle_outgoing_message(
                     client_socket,
                     typed_message,
+                    leet_enabled,
                 )
                 if local_input_closed:
                     input_queue = None
