@@ -1,16 +1,22 @@
 import argparse
 import os
 import queue
+import random
 import select
+import shutil
 import socket
 import sys
 import threading
+import time
 
 DEFAULT_HOST = "0.0.0.0"
 DEFAULT_PORT = 9999
 BUFFER_SIZE = 1024
 QUIT_COMMAND = "/quit"
 LEET_COMMAND = "/leet"
+VIRUS_COMMAND = "/virus"
+CONTROL_PREFIX = "__CTRL__:"
+VIRUS_SIGNAL = f"{CONTROL_PREFIX}VIRUS"
 
 LEET_MAP = str.maketrans({
     "a": "4",
@@ -51,6 +57,59 @@ def to_leetspeak(message):
     return message.translate(LEET_MAP)
 
 
+def clear_screen():
+    print("\033[2J\033[H", end="", flush=True)
+
+
+def glitch_text(text):
+    glitch_chars = "@#$%&*?!~=+<>/\\|[]{};:.,^_"
+    mojibake_chars = "XO01Il/\\\\[]{}<>~^_-+="
+    transformed = []
+
+    for char in text:
+        roll = random.random()
+        if char != " " and roll < 0.18:
+            transformed.append("")
+        elif char != " " and roll < 0.52:
+            transformed.append(random.choice(glitch_chars))
+        elif char != " " and roll < 0.72:
+            transformed.append(random.choice(mojibake_chars))
+        else:
+            transformed.append(char)
+
+    return "".join(transformed)
+
+
+def run_virus_effect(remote_label):
+    width = shutil.get_terminal_size((80, 24)).columns
+    messages = [
+        "SYSTEM BREACH DETECTED",
+        "BOOT SECTOR CORRUPTED",
+        "ENCRYPTING CHAT LOGS",
+        "SCRAMBLING MEMORY",
+        "PAYLOAD DEPLOYED",
+        "SIGNAL INJECTION",
+        "TERMINAL MELTDOWN",
+        "RECOVERING FRAGMENTS",
+    ]
+
+    end_time = time.time() + 10
+    while time.time() < end_time:
+        clear_screen()
+        print(glitch_text("!!! WAZZAP VIRUS ALERT !!!").center(width))
+        print()
+
+        for _ in range(8):
+            print(glitch_text(random.choice(messages)).center(width))
+
+        print()
+        print(glitch_text(f"{remote_label} infected your terminal").center(width))
+        time.sleep(0.08)
+
+    clear_screen()
+    print("Terminal recovered.")
+
+
 def start_input_reader():
     input_queue = queue.Queue()
 
@@ -77,6 +136,16 @@ def handle_outgoing_message(connection, message, leet_enabled):
         leet_enabled = not leet_enabled
         state = "enabled" if leet_enabled else "disabled"
         print(f"\nServer: Leet mode {state}.")
+        prompt()
+        return False, False, leet_enabled
+
+    if message == VIRUS_COMMAND:
+        try:
+            send_message(connection, VIRUS_SIGNAL)
+        except OSError as err:
+            print(f"\nServer: Connection lost while sending: {err}")
+            return True, True, leet_enabled
+        print("\nServer: Virus payload sent.")
         prompt()
         return False, False, leet_enabled
 
@@ -109,6 +178,13 @@ def handle_incoming_data(receive_buffer, data_received, local_input_closed):
         if not message:
             continue
 
+        if message == VIRUS_SIGNAL:
+            print("\nClient: Triggered /virus.")
+            run_virus_effect("Client")
+            if not local_input_closed:
+                prompt()
+            continue
+
         print(f"\nClient: {message}")
         if message == QUIT_COMMAND:
             print("Server: Client ended the chat.")
@@ -138,6 +214,7 @@ try:
     print(f"Server: Connection accepted from {client_address[0]}:{client_address[1]}")
     print(f"Server: Chat is live. Type messages anytime. Use {QUIT_COMMAND} to exit.")
     print(f"Server: Use {LEET_COMMAND} to toggle leetspeak for future outgoing messages.")
+    print(f"Server: Use {VIRUS_COMMAND} to prank the other side for 10 seconds.")
 
     watched_inputs = [client_connection]
     input_queue = None
