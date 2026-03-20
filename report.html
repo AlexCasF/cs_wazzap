@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wazzap Project Summary</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+      line-height: 1.25;
+      color: #000;
+      margin: 24px;
+    }
+
+    h1 {
+      font-size: 20px;
+      margin: 0 0 4px 0;
+    }
+
+    h2 {
+      font-size: 13px;
+      margin: 10px 0 4px 0;
+    }
+
+    p, ul {
+      margin: 4px 0;
+    }
+
+    ul {
+      padding-left: 18px;
+    }
+
+    li {
+      margin: 2px 0;
+    }
+
+    code {
+      font-family: "Courier New", monospace;
+      font-size: 11px;
+    }
+
+    .meta {
+      margin-bottom: 8px;
+    }
+
+    @media print {
+      body {
+        margin: 12mm;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Wazzap</h1>
+  <p class="meta">Project summary for the Python socket chat application. Tested Kali IP: <code>192.168.106.128</code></p>
+
+  <h2>What the App Does</h2>
+  <p>
+    Wazzap is a terminal chat app built with Python sockets. The server runs on the Kali VM and the client
+    runs on the Windows host. Both sides can send and receive text messages in real time over LAN or through
+    a Pinggy TCP tunnel.
+  </p>
+
+  <h2>How to Run It</h2>
+  <ul>
+    <li>Server on Kali: <code>python3 server.py 0.0.0.0 9999</code></li>
+    <li>Client on Windows: <code>python client.py 192.168.106.128 9999</code></li>
+    <li>Use <code>/quit</code> to close the chat cleanly.</li>
+  </ul>
+
+  <h2>Pinggy</h2>
+  <p>
+    Pinggy TCP tunneling worked at the beginning and allowed the client to connect to the Kali-hosted server
+    over the internet. Later attempts were inconsistent because the current server handles one client session
+    and then exits, so it must be restarted before reconnecting.
+  </p>
+
+  <h2>Features Added</h2>
+  <ul>
+    <li>Real-time two-way chat with Python sockets</li>
+    <li>Simultaneous send/receive using <code>select</code></li>
+    <li>Configurable host and port arguments</li>
+    <li><code>/quit</code> for clean shutdown</li>
+    <li><code>/leet</code> to toggle leetspeak for future outgoing messages</li>
+    <li><code>/virus</code> prank effect with warning screen and glitch animation</li>
+  </ul>
+
+  <h2>What I Learned and Challenges</h2>
+  <ul>
+    <li>I learned how client/server socket communication works in Python.</li>
+    <li>I learned how to use <code>select</code> so the app can send and receive without blocking.</li>
+    <li>I learned how to connect the Windows host to the Kali VM over LAN and how to use <code>scp</code> and Pinggy.</li>
+    <li>I fixed an early port mismatch between client and server.</li>
+    <li>I worked around the difference between Windows console input and Linux <code>stdin</code> behavior.</li>
+    <li>Pinggy testing was harder because the server currently accepts one client session and then exits.</li>
+  </ul>
+</body>
+</html>
