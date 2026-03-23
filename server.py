@@ -1,12 +1,10 @@
 import argparse
 import os
 import queue
-import random
 import select
 import socket
 import sys
 import threading
-import time
 
 DEFAULT_HOST = "0.0.0.0"
 DEFAULT_PORT = 9999
@@ -16,6 +14,7 @@ LEET_COMMAND = "/leet"
 VIRUS_COMMAND = "/virus"
 CONTROL_PREFIX = "__CTRL__:"
 VIRUS_SIGNAL = f"{CONTROL_PREFIX}VIRUS"
+USERNAME_PREFIX = f"{CONTROL_PREFIX}USERNAME:"
 
 LEET_MAP = str.maketrans({
     "a": "4",
@@ -49,132 +48,11 @@ def parse_args():
 
 
 def prompt():
-    print("You: ", end="", flush=True)
+    print("> ", end="", flush=True)
 
 
 def to_leetspeak(message):
     return message.translate(LEET_MAP)
-
-
-def clear_screen():
-    print("\033[2J\033[H", end="", flush=True)
-
-
-def red(text):
-    return f"\033[91m{text}\033[0m"
-
-
-def green(text):
-    return f"\033[92m{text}\033[0m"
-
-
-def blink(text):
-    return f"\033[5m{text}\033[0m"
-
-
-def make_progress_bar(progress, width=28):
-    filled = max(0, min(width, int(width * progress)))
-    return "[" + ("#" * filled) + ("-" * (width - filled)) + "]"
-
-
-def glitch_text(text):
-    glitch_chars = "@#$%&*?!~=+<>/\\|[]{};:.,^_"
-    mojibake_chars = "XO01Il/\\\\[]{}<>~^_-+="
-    transformed = []
-
-    for char in text:
-        roll = random.random()
-        if char != " " and roll < 0.18:
-            transformed.append("")
-        elif char != " " and roll < 0.52:
-            transformed.append(random.choice(glitch_chars))
-        elif char != " " and roll < 0.72:
-            transformed.append(random.choice(mojibake_chars))
-        else:
-            transformed.append(char)
-
-    return "".join(transformed)
-
-
-def run_virus_effect(remote_label):
-    messages = [
-        "SYSTEM BREACH DETECTED",
-        "BOOT SECTOR CORRUPTED",
-        "ENCRYPTING CHAT LOGS",
-        "SCRAMBLING MEMORY",
-        "PAYLOAD DEPLOYED",
-        "SIGNAL INJECTION",
-        "TERMINAL MELTDOWN",
-        "RECOVERING FRAGMENTS",
-    ]
-
-    skull_lines = [
-        "⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄",
-        "⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⡀⠄⠄⠄⠄",
-        "⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠈⠄⠄⠄⠁⠄⠁⠄⠄⠄⠄⠄",
-        "⠄⠄⠄⠄⠄⠄⣀⣀⣤⣤⣴⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣦⣤⣤⣄⣀⡀⠄⠄⠄⠄⠄",
-        "⠄⠄⠄⠄⣴⣿⣿⡿⣿⢿⣟⣿⣻⣟⡿⣟⣿⣟⡿⣟⣿⣻⣟⣿⣻⢿⣻⡿⣿⢿⣷⣆⠄⠄⠄",
-        "⠄⠄⠄⢘⣿⢯⣷⡿⡿⡿⢿⢿⣷⣯⡿⣽⣞⣷⣻⢯⣷⣻⣾⡿⡿⢿⢿⢿⢯⣟⣞⡮⡀⠄⠄",
-        "⠄⠄⠄⢸⢞⠟⠃⣉⢉⠉⠉⠓⠫⢿⣿⣷⢷⣻⣞⣿⣾⡟⠽⠚⠊⠉⠉⠉⠙⠻⣞⢵⠂⠄⠄",
-        "⠄⠄⠄⢜⢯⣺⢿⣻⣿⣿⣷⣔⡄⠄⠈⠛⣿⣿⡾⠋⠁⠄⠄⣄⣶⣾⣿⡿⣿⡳⡌⡗⡅⠄⠄",
-        "⠄⠄⠄⢽⢱⢳⢹⡪⡞⠮⠯⢯⡻⡬⡐⢨⢿⣿⣿⢀⠐⡥⣻⡻⠯⡳⢳⢹⢜⢜⢜⢎⠆⠄⠄",
-        "⠄⠄⠠⣻⢌⠘⠌⡂⠈⠁⠉⠁⠘⠑⢧⣕⣿⣿⣿⢤⡪⠚⠂⠈⠁⠁⠁⠂⡑⠡⡈⢮⠅⠄⠄",
-        "⠄⠄⠠⣳⣿⣿⣽⣭⣶⣶⣶⣶⣶⣺⣟⣾⣻⣿⣯⢯⢿⣳⣶⣶⣶⣖⣶⣮⣭⣷⣽⣗⠍⠄⠄",
-        "⠄⠄⢀⢻⡿⡿⣟⣿⣻⣽⣟⣿⢯⣟⣞⡷⣿⣿⣯⢿⢽⢯⣿⣻⣟⣿⣻⣟⣿⣻⢿⣿⢀⠄⠄",
-        "⠄⠄⠄⡑⡏⠯⡯⡳⡯⣗⢯⢟⡽⣗⣯⣟⣿⣿⣾⣫⢿⣽⠾⡽⣺⢳⡫⡞⡗⡝⢕⠕⠄⠄⠄",
-        "⠄⠄⠄⢂⡎⠅⡃⢇⠇⠇⣃⣧⡺⡻⡳⡫⣿⡿⣟⠞⠽⠯⢧⣅⣃⠣⠱⡑⡑⠨⢐⢌⠂⠄⠄",
-        "⠄⠄⠄⠐⠼⣦⢀⠄⣶⣿⢿⣿⣧⣄⡌⠂⠢⠩⠂⠑⣁⣅⣾⢿⣟⣷⠦⠄⠄⡤⡇⡪⠄⠄⠄",
-        "⠄⠄⠄⠄⠨⢻⣧⡅⡈⠛⠿⠿⠿⠛⠁⠄⢀⡀⠄⠄⠘⠻⠿⠿⠯⠓⠁⢠⣱⡿⢑⠄⠄⠄⠄",
-        "⠄⠄⠄⠄⠈⢌⢿⣷⡐⠤⣀⣀⣂⣀⢀⢀⡓⠝⡂⡀⢀⢀⢀⣀⣀⠤⢊⣼⡟⡡⡁⠄⠄⠄⠄",
-        "⠄⠄⠄⠄⠄⠈⢢⠚⣿⣄⠈⠉⠛⠛⠟⠿⠿⠟⠿⠻⠻⠛⠛⠉⠄⣠⠾⢑⠰⠈⠄⠄⠄⠄⠄",
-        "⠄⠄⠄⠄⠄⠄⠄⠑⢌⠿⣦⡡⣱⣸⣸⣆⠄⠄⠄⣰⣕⢔⢔⠡⣼⠞⡡⠁⠁⠄⠄⠄⠄⠄⠄",
-        "⠄⠄⠄⠄⠄⠄⠄⠄⠄⠑⢝⢷⣕⡷⣿⡿⠄⠄⠠⣿⣯⣯⡳⡽⡋⠌⠄⠄⠄⠄⠄⠄⠄⠄⠄",
-        "⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠙⢮⣿⣽⣯⠄⠄⢨⣿⣿⡷⡫⠃⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄",
-        "⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠘⠙⠝⠂⠄⢘⠋⠃⠁⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄",
-        "⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄",
-        "⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄",
-    ]
-
-    warning_duration = 10
-    warning_start = time.time()
-    warning_end = warning_start + warning_duration
-    blink_on = True
-    while time.time() < warning_end:
-        clear_screen()
-        banner = "!!! WAZZAP VIRUS ALERT !!!"
-        status = "REMOTE PAYLOAD ACTIVE"
-        colorize = red if blink_on else green
-        print(colorize(blink(banner)))
-        print(colorize(blink(status)))
-
-        print()
-        for line in skull_lines:
-            print(colorize(blink(line)))
-
-        print()
-        progress = min((time.time() - warning_start) / warning_duration, 1.0)
-        percent = min(99, max(3, int(3 + (96 * progress))))
-        print(colorize(blink("PAYLOAD DOWNLOAD")))
-        print(colorize(blink(f"{make_progress_bar(percent / 100)} {percent}%")))
-        print()
-        print(colorize(blink(f"{remote_label} infected your terminal")))
-        print(colorize(blink("FILES ARE BEING CORRUPTED")))
-        print(colorize(blink("DO NOT POWER OFF")))
-        frame_delay = max(0.05, 0.45 - (0.37 * progress))
-        time.sleep(frame_delay)
-        blink_on = not blink_on
-
-    glitch_end = time.time() + 10
-    while time.time() < glitch_end:
-        clear_screen()
-        print(glitch_text("!!! WAZZAP VIRUS ALERT !!!"))
-        print(glitch_text(f"{remote_label} infected your terminal"))
-        for _ in range(8):
-            print(glitch_text(random.choice(messages)))
-        time.sleep(0.08)
-
-    clear_screen()
-    print("Just kidding :-D")
 
 
 def start_input_reader():
@@ -183,84 +61,78 @@ def start_input_reader():
     def read_lines():
         for line in sys.stdin:
             input_queue.put(line.rstrip("\r\n"))
-        input_queue.put(None)
 
     threading.Thread(target=read_lines, daemon=True).start()
     return input_queue
 
 
-def send_message(connection, message):
+def send_line(connection, message):
     connection.sendall(f"{message}\n".encode("utf-8"))
 
 
-def handle_outgoing_message(connection, message, leet_enabled):
+def safe_send(connection, message):
+    try:
+        send_line(connection, message)
+        return True
+    except OSError:
+        return False
+
+
+def broadcast(clients, sender_socket, message):
+    disconnected = []
+    for client_socket in list(clients):
+        if sender_socket is not None and client_socket is sender_socket:
+            continue
+        if not safe_send(client_socket, message):
+            disconnected.append(client_socket)
+    return disconnected
+
+
+def remove_client(client_socket, clients, client_buffers, watched_inputs):
+    client_name = clients.pop(client_socket, None)
+    client_buffers.pop(client_socket, None)
+    if client_socket in watched_inputs:
+        watched_inputs.remove(client_socket)
+    try:
+        client_socket.close()
+    except OSError:
+        pass
+    return client_name
+
+
+def handle_server_input(message, clients, leet_enabled):
     message = message.strip()
     if not message:
         prompt()
-        return False, False, leet_enabled
+        return False, leet_enabled
 
     if message == LEET_COMMAND:
         leet_enabled = not leet_enabled
         state = "enabled" if leet_enabled else "disabled"
         print(f"\nServer: Leet mode {state}.")
         prompt()
-        return False, False, leet_enabled
+        return False, leet_enabled
 
     if message == VIRUS_COMMAND:
-        try:
-            send_message(connection, VIRUS_SIGNAL)
-        except OSError as err:
-            print(f"\nServer: Connection lost while sending: {err}")
-            return True, True, leet_enabled
+        disconnected = broadcast(clients, None, VIRUS_SIGNAL)
+        for client_socket in disconnected:
+            remove_client(client_socket, clients, client_buffers, watched_inputs)
         print("\nServer: Virus payload sent.")
         prompt()
-        return False, False, leet_enabled
-
-    outgoing_message = to_leetspeak(message) if leet_enabled and message != QUIT_COMMAND else message
-
-    try:
-        send_message(connection, outgoing_message)
-    except OSError as err:
-        print(f"\nServer: Connection lost while sending: {err}")
-        return True, True, leet_enabled
+        return False, leet_enabled
 
     if message == QUIT_COMMAND:
-        try:
-            connection.shutdown(socket.SHUT_WR)
-        except OSError:
-            pass
-        print("\nServer: Closing your side of the chat. Waiting for client...")
-        return True, False, leet_enabled
+        print("\nServer: Shutting down.")
+        return True, leet_enabled
 
+    outgoing_message = to_leetspeak(message) if leet_enabled else message
+    disconnected = broadcast(clients, None, f"Server: {outgoing_message}")
+    for client_socket in disconnected:
+        client_name = remove_client(client_socket, clients, client_buffers, watched_inputs)
+        if client_name:
+            broadcast(clients, None, f"* {client_name} disconnected.")
     prompt()
-    return False, False, leet_enabled
-
-
-def handle_incoming_data(receive_buffer, data_received, local_input_closed):
-    receive_buffer += data_received.decode("utf-8")
-
-    while "\n" in receive_buffer:
-        message, receive_buffer = receive_buffer.split("\n", 1)
-        message = message.rstrip("\r")
-        if not message:
-            continue
-
-        if message == VIRUS_SIGNAL:
-            print("\nClient: Triggered /virus.")
-            run_virus_effect("Client")
-            if not local_input_closed:
-                prompt()
-            continue
-
-        print(f"\nClient: {message}")
-        if message == QUIT_COMMAND:
-            print("Server: Client ended the chat.")
-            return receive_buffer, True
-
-        if not local_input_closed:
-            prompt()
-
-    return receive_buffer, False
+    return False, leet_enabled
 
 
 print("Server: Starting...")
@@ -274,23 +146,21 @@ try:
     print(f"Server: Binding to {server_address[0]}:{server_address[1]}...")
     server_socket.bind(server_address)
 
-    server_socket.listen(1)
+    server_socket.listen()
     print(f"Server: Listening on port {server_address[1]}...")
-
-    client_connection, client_address = server_socket.accept()
-    print(f"Server: Connection accepted from {client_address[0]}:{client_address[1]}")
-    print(f"Server: Chat is live. Type messages anytime. Use {QUIT_COMMAND} to exit.")
+    print(f"Server: Chat room is live. Type messages anytime. Use {QUIT_COMMAND} to exit.")
     print(f"Server: Use {LEET_COMMAND} to toggle leetspeak for future outgoing messages.")
 
-    watched_inputs = [client_connection]
+    watched_inputs = [server_socket]
     input_queue = None
     if os.name == "nt":
         input_queue = start_input_reader()
     else:
         watched_inputs.append(sys.stdin)
 
-    receive_buffer = ""
-    local_input_closed = False
+    clients = {}
+    client_buffers = {}
+    client_counter = 0
     leet_enabled = False
     prompt()
 
@@ -299,64 +169,111 @@ try:
         should_exit = False
 
         for source in readable:
-            if source is client_connection:
-                data_received = client_connection.recv(BUFFER_SIZE)
-                if not data_received:
-                    print("\nServer: Client disconnected.")
-                    should_exit = True
-                    break
-
-                receive_buffer, should_exit = handle_incoming_data(
-                    receive_buffer,
-                    data_received,
-                    local_input_closed,
+            if source is server_socket:
+                client_connection, client_address = server_socket.accept()
+                client_counter += 1
+                client_name = f"Guest-{client_counter}"
+                clients[client_connection] = client_name
+                client_buffers[client_connection] = ""
+                watched_inputs.append(client_connection)
+                print(f"\nServer: {client_name} connected from {client_address[0]}:{client_address[1]}")
+                safe_send(
+                    client_connection,
+                    f"* Connected to Wazzap chat room as {client_name}. {QUIT_COMMAND} to leave.",
                 )
-            else:
+                prompt()
+                continue
+
+            if source is sys.stdin:
                 typed_message = sys.stdin.readline()
                 if typed_message == "":
                     typed_message = QUIT_COMMAND
-                local_input_closed, should_exit, leet_enabled = handle_outgoing_message(
-                    client_connection,
+                should_exit, leet_enabled = handle_server_input(
                     typed_message,
+                    clients,
                     leet_enabled,
                 )
-                if local_input_closed:
-                    watched_inputs = [client_connection]
+                if should_exit:
+                    break
+                continue
 
-            if should_exit:
-                break
+            data_received = source.recv(BUFFER_SIZE)
+            if not data_received:
+                client_name = remove_client(source, clients, client_buffers, watched_inputs)
+                if client_name:
+                    print(f"\nServer: {client_name} disconnected.")
+                    broadcast(clients, None, f"* {client_name} left the chat.")
+                    prompt()
+                continue
 
-        if should_exit:
-            break
+            receive_buffer = client_buffers[source] + data_received.decode("utf-8")
 
-        if input_queue is not None and not local_input_closed:
+            while "\n" in receive_buffer:
+                message, receive_buffer = receive_buffer.split("\n", 1)
+                message = message.rstrip("\r")
+                if not message:
+                    continue
+
+                client_name = clients.get(source, "Unknown")
+                if message.startswith(USERNAME_PREFIX):
+                    new_name = message[len(USERNAME_PREFIX):].strip()
+                    if new_name:
+                        old_name = client_name
+                        clients[source] = new_name
+                        print(f"\nServer: {old_name} is now {new_name}.")
+                        safe_send(source, f"* You are now known as {new_name}.")
+                        broadcast(clients, source, f"* {new_name} joined the chat.")
+                        prompt()
+                    continue
+
+                if message == QUIT_COMMAND:
+                    remove_client(source, clients, client_buffers, watched_inputs)
+                    print(f"\nServer: {client_name} left the chat.")
+                    broadcast(clients, None, f"* {client_name} left the chat.")
+                    prompt()
+                    break
+
+                if message == VIRUS_SIGNAL:
+                    print(f"\nServer: {client_name} triggered /virus.")
+                    disconnected = broadcast(clients, source, VIRUS_SIGNAL)
+                    for client_socket in disconnected:
+                        removed_name = remove_client(client_socket, clients, client_buffers, watched_inputs)
+                        if removed_name:
+                            broadcast(clients, None, f"* {removed_name} disconnected.")
+                    prompt()
+                    continue
+
+                print(f"\n{client_name}: {message}")
+                disconnected = broadcast(clients, source, f"{client_name}: {message}")
+                for client_socket in disconnected:
+                    removed_name = remove_client(client_socket, clients, client_buffers, watched_inputs)
+                    if removed_name:
+                        broadcast(clients, None, f"* {removed_name} disconnected.")
+                prompt()
+
+            client_buffers[source] = receive_buffer
+
+        if input_queue is not None:
             while True:
                 try:
                     typed_message = input_queue.get_nowait()
                 except queue.Empty:
                     break
 
-                if typed_message is None:
-                    typed_message = QUIT_COMMAND
-
-                local_input_closed, should_exit, leet_enabled = handle_outgoing_message(
-                    client_connection,
+                should_exit, leet_enabled = handle_server_input(
                     typed_message,
+                    clients,
                     leet_enabled,
                 )
-                if local_input_closed:
-                    input_queue = None
-                    watched_inputs = [client_connection]
-                    break
-
                 if should_exit:
                     break
 
         if should_exit:
             break
 
-    client_connection.close()
-    print("Server: Client connection closed.")
+    broadcast(clients, None, "* Server is shutting down.")
+    for client_socket in list(clients):
+        remove_client(client_socket, clients, client_buffers, watched_inputs)
 
     server_socket.close()
     print("Server: Server socket closed.")

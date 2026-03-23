@@ -16,6 +16,7 @@ LEET_COMMAND = "/leet"
 VIRUS_COMMAND = "/virus"
 CONTROL_PREFIX = "__CTRL__:"
 VIRUS_SIGNAL = f"{CONTROL_PREFIX}VIRUS"
+USERNAME_PREFIX = f"{CONTROL_PREFIX}USERNAME:"
 
 LEET_MAP = str.maketrans({
     "a": "4",
@@ -54,7 +55,7 @@ def parse_args():
 
 
 def prompt():
-    print("You: ", end="", flush=True)
+    print("> ", end="", flush=True)
 
 
 def to_leetspeak(message):
@@ -188,7 +189,6 @@ def start_input_reader():
     def read_lines():
         for line in sys.stdin:
             input_queue.put(line.rstrip("\r\n"))
-        input_queue.put(None)
 
     threading.Thread(target=read_lines, daemon=True).start()
     return input_queue
@@ -237,7 +237,6 @@ def handle_outgoing_message(connection, message, leet_enabled):
         print("\nClient: Closing your side of the chat. Waiting for server...")
         return True, False, leet_enabled
 
-    prompt()
     return False, False, leet_enabled
 
 
@@ -251,15 +250,15 @@ def handle_incoming_data(receive_buffer, data_received, local_input_closed):
             continue
 
         if message == VIRUS_SIGNAL:
-            print("\nServer: Triggered /virus.")
-            run_virus_effect("Server")
+            print("\nWarning: /virus triggered.")
+            run_virus_effect("Remote user")
             if not local_input_closed:
                 prompt()
             continue
 
-        print(f"\nServer: {message}")
+        print(f"\n{message}")
         if message == QUIT_COMMAND:
-            print("Client: Server ended the chat.")
+            print("Client: Chat ended.")
             return receive_buffer, True
 
         if not local_input_closed:
@@ -271,6 +270,7 @@ def handle_incoming_data(receive_buffer, data_received, local_input_closed):
 print("Client: Starting...")
 try:
     args = parse_args()
+    username = input("Username: ").strip() or "Anonymous"
     client_socket = socket.socket()
     print("Client: Socket created.")
 
@@ -280,6 +280,7 @@ try:
     print("Client: Connected!")
     print(f"Client: Chat is live. Type messages anytime. Use {QUIT_COMMAND} to exit.")
     print(f"Client: Use {LEET_COMMAND} to toggle leetspeak for future outgoing messages.")
+    send_message(client_socket, f"{USERNAME_PREFIX}{username}")
 
     watched_inputs = [client_socket]
     input_queue = None
@@ -334,9 +335,6 @@ try:
                     typed_message = input_queue.get_nowait()
                 except queue.Empty:
                     break
-
-                if typed_message is None:
-                    typed_message = QUIT_COMMAND
 
                 local_input_closed, should_exit, leet_enabled = handle_outgoing_message(
                     client_socket,
